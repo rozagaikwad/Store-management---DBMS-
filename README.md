@@ -1,2 +1,300 @@
 # Store-management---DBMS-
 Developed a complementary system for tracking sales purchases and inventory update. 
+
+import java.sql.Connection;
+import java.sql.Statement;
+import java.sql.PreparedStatement;
+import java.sql.CallableStatement;
+import java.sql.ResultSet;
+import java.io.*;
+import java.sql.DriverManager;
+import java.sql.Types;
+
+public class Main {
+static final String DB_URL="jdbc:mysql://localhost/store?autoReconnect=true&useSSL=false";
+static final String USER="root";
+static final String PASS="nvc@2002";
+static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
+public static void main(String[] args) {
+Statement stmt=null;
+int n;
+
+try {
+System.out.println("Connecting to the database.");
+do {
+Connection conn=null;
+Class.forName(JDBC_DRIVER);
+conn=DriverManager.getConnection(DB_URL,USER,PASS);
+stmt=conn.createStatement();
+BufferedReader b=new BufferedReader(new InputStreamReader(System.in));
+System.out.println("----------------------------------------------------------------------");
+System.out.println("MENU\n1.Insert an item\n2.Display all the items\n3.Insert order of customer\n4.Update price of item\n5.Update Quantity of item\n6.Customer order details\n7.Search for item\n8.Category wise sale");
+System.out.println("9.Product sale between given time period");
+n=Integer.parseInt(b.readLine());
+switch(n)
+{
+case 1:
+	System.out.println("Inserting the items");
+	String query1="insert into item(item_ID,item_Name,Price,Brand,Category)"+"values(?,?,?,?,?)";
+	String query2="insert into inventory(item_ID,item_Quantity)"+"values(?,?)";
+	System.out.println("\n-----Item details-----");
+	System.out.println("Enter the item ID:");
+	int item_ID=Integer.parseInt(b.readLine());
+	System.out.println("Enter Name:");
+	String item_Name=(b.readLine());
+	System.out.println("Enter Price:");
+	int Price=Integer.parseInt(b.readLine());
+	System.out.println("Enter Brand:");
+	String Brand=(b.readLine());
+	System.out.println("Enter Category(Food | House-hold | Stationary):");
+	String Category=(b.readLine());
+	System.out.println("Enter Quantity:");
+	int item_Quantity=Integer.parseInt(b.readLine());
+	
+	PreparedStatement prepstmt;
+	prepstmt=conn.prepareStatement(query1);
+	prepstmt.setInt(1,item_ID);
+	prepstmt.setString(2, item_Name);
+	prepstmt.setInt(3,Price);
+	prepstmt.setString(4, Brand);
+	prepstmt.setString(5,Category);
+	prepstmt.execute();
+	
+	prepstmt=conn.prepareStatement(query2);
+	prepstmt.setInt(1,item_ID);
+	prepstmt.setInt(2,item_Quantity);
+	prepstmt.execute();
+	
+	conn.close();
+	System.out.println("Inserted successfully!");
+	break;
+	
+case 2:
+	System.out.println("Display the item table");
+	String query="select * from item";
+	int count=0;
+	ResultSet rs=stmt.executeQuery(query);
+	System.out.println("item_ID - item_Name - Price - Brand - Category");
+	while(rs.next())
+	{	
+	item_ID=rs.getInt("item_ID");
+	item_Name=rs.getString("item_Name");
+	Price=rs.getInt("Price");
+	Brand=rs.getString("Brand");
+	Category=rs.getString("Category");
+	String output = "Item #%d:  %d  |  %s  |  %d  |  %s  |  %s  ";
+	System.out.println(String.format(output, ++count,item_ID,item_Name,Price,Brand,Category));}
+	
+	conn.close();
+	break;
+	
+case 3:
+	System.out.println("Inserting the orders");
+	query="insert into customer_order(customer_ID,item_ID,item_Quantity)"+"values(?,?,?)";
+	
+	System.out.println("\n-----Customer Order details-----");
+	System.out.println("Enter Customer ID:");
+	int customer_ID=Integer.parseInt(b.readLine());
+	
+	int loop=0;
+	
+	do {
+	System.out.println("Enter item ID:");
+	item_ID=Integer.parseInt(b.readLine());
+	System.out.println("Enter Quantity:");
+	item_Quantity=Integer.parseInt(b.readLine());
+	
+	prepstmt=conn.prepareStatement(query);
+	prepstmt.setInt(1, customer_ID);
+	prepstmt.setInt(2,item_ID);
+	prepstmt.setInt(3, item_Quantity);
+	prepstmt.execute();
+	
+	System.out.println("Do you want to add more items to cart?(1/0)");
+	loop=Integer.parseInt(b.readLine());
+	}while(loop>0);
+	
+	
+	query2="select order_ID as oID from customer_order where customer_Id="+customer_ID+" and item_ID="+item_ID+" and item_Quantity="+item_Quantity;
+	rs=stmt.executeQuery(query2);
+	int o_ID=0;
+	
+	if(rs.next()){
+		o_ID=rs.getInt("oID");
+		System.out.println("order id="+o_ID);
+	}
+		
+	CallableStatement cstmt= conn.prepareCall("{call UpdateStock(?,?,?,?)}");
+	cstmt.setInt(1, item_ID);
+	cstmt.setInt(2, o_ID);
+    //Registering the type of the OUT parameters
+    cstmt.registerOutParameter(3, Types.INTEGER);
+    cstmt.registerOutParameter(4, Types.INTEGER);
+    //Executing the CallableStatement
+    cstmt.executeUpdate();
+    //Retrieving the values 
+    int IQ=cstmt.getInt(3);
+    int OQ=cstmt.getInt(4);
+    
+    query1="select customer_ID,sum(customer_order.item_Quantity*item.Price) as total from customer_order,item  where customer_order.item_ID=item.item_ID && customer_ID="+customer_ID+"&& customer_order.order_date=curdate()";
+	rs=stmt.executeQuery(query1);
+    int bill=0;
+    
+	if(rs.next()){
+		bill=rs.getInt("total");
+	}
+    if((IQ-OQ)<0) {
+    	System.out.println("For "+item_ID);
+    	System.out.println("Available Quantity= "+IQ);
+    	System.out.println("Remaining= "+(OQ-IQ)+" are out of stock.");
+    	System.out.println("Total Bill:"+bill);
+    	System.out.println("Order successful partially:(");
+        
+    }else {
+
+    	System.out.println("Total Bill:"+bill);
+    	String query3="insert into bill(admin_ID,c_ID,order_ID,Total_amount)"+"values(?,?,?,?)";
+    	prepstmt=conn.prepareStatement(query3);
+    	System.out.println("Enter admin ID:");
+    	int id=Integer.parseInt(b.readLine());
+    	prepstmt.setInt(1, id);
+    	prepstmt.setInt(2,customer_ID);
+    	prepstmt.setInt(3,o_ID);
+    	prepstmt.setInt(4, bill);
+    	prepstmt.execute();
+    	System.out.println("Complete Order successful!");
+        
+    }
+	conn.close();
+   
+    break;
+    
+case 4:
+	System.out.println("Updating price of item");
+	System.out.println("Enter item_ID:");
+	item_ID = Integer.parseInt(b.readLine());
+	System.out.println("Enter Price:");
+	Price=Integer.parseInt(b.readLine());
+	
+	query="update item set Price="+Price+" where item_ID ="+item_ID;
+	stmt.executeUpdate(query);
+	
+	conn.close();
+    System.out.println("Updated price successfully!");
+    break;
+	
+case 5:
+	System.out.println("Updating item quantity in inventory");
+	System.out.println("Enter item_ID:");
+	item_ID = Integer.parseInt(b.readLine());
+	System.out.println("Enter quantity of new stock:");
+	item_Quantity=Integer.parseInt(b.readLine());
+	
+	query="update inventory set item_Quantity=item_Quantity+"+item_Quantity+" where item_ID ="+item_ID;
+	stmt.executeUpdate(query);
+	
+	conn.close();
+    System.out.println("Updated stock successfully!");
+    break;
+    
+case 6:
+	//left join
+	System.out.println("Displaying customer order in detail");
+	System.out.println("Enter customer_ID:");
+	customer_ID = Integer.parseInt(b.readLine());
+
+	
+	query="select customer_order.order_ID,customer_order.customer_ID,customer_order.item_ID,item.item_Name,item.Price,customer_order.item_Quantity,customer_order.order_date,"
+			+ "(customer_order.item_Quantity*item.Price) as Total_amt from customer_order left join  item on customer_order.item_ID=item.item_ID "
+			+ "where customer_order.customer_ID="+customer_ID;
+	rs =stmt.executeQuery(query);
+	System.out.println("order-ID|customer_ID|item_ID|item_Name|Price|item_Quantity|Total amount");
+	while(rs.next())
+	{
+	int order_ID=rs.getInt("order_ID");	
+	customer_ID=rs.getInt("customer_ID");
+	item_ID=rs.getInt("item_ID");
+	item_Name=rs.getString("item_Name");
+	Price=rs.getInt("Price");
+	item_Quantity =rs.getInt("item_Quantity");
+	String order_date=rs.getString("order_date");
+	int Total_amount =rs.getInt("Total_amt");
+	System.out.println(order_ID+"	 "+customer_ID+"	 "+item_ID+"	 "+item_Name+"	 "+Price+"  	"+item_Quantity+"   	"+Total_amount+"	  "+order_date);
+	}
+	conn.close();
+	break;
+	
+case 7:
+	//like
+	System.out.println("Searching items ");
+	System.out.println("Enter item_Name initial:");
+	String i = b.readLine();
+	
+	query=" select item_ID,item_Name,Price from item where item_Name like '"+i+"%'";
+	
+	rs =stmt.executeQuery(query);
+	System.out.println("item_ID|item_Name|Price");
+	while(rs.next())
+	{
+	item_ID=rs.getInt("item_ID");
+	item_Name=rs.getString("item_Name");
+	Price=rs.getInt("Price");
+	
+	System.out.println(item_ID+"	 "+item_Name+"	  "+Price);
+	}
+	conn.close();
+	break;
+	
+case 8:
+	//category_wise is sub-query
+	System.out.println("Select category:");
+	System.out.println("1.Food\n2.House-hold\n3.Stationary");
+	int ch=Integer.parseInt(b.readLine());
+	String cat=null;
+	if(ch==1) {
+		cat="Food";
+	}else if(ch==2) {
+		cat="House-hold";
+	}else if(ch==3) {
+		cat="Stationary";
+	}
+	
+	System.out.println("Displaying sale details-");
+	query="select sum(item_quantity) as sale from customer_order where item_ID in(select item_ID from item where category='"+cat+"')";
+	rs=stmt.executeQuery(query);
+	System.out.println("Category    item_Quantity");
+	while(rs.next())
+	{	
+	item_Quantity=rs.getInt("sale");
+	Category=cat;
+	System.out.println(Category+"         "+item_Quantity);
+	}
+	conn.close();
+    break;
+
+case 9:
+	//sale date wise
+	System.out.println("Displaying Datewise Total_sale");
+	System.out.println("Enter start date in (YYYY-MM-DD) format:");
+	String d1=b.readLine();
+	System.out.println("Enter end date in (YYYY-MM-DD) format:");
+	String d2=b.readLine();
+	query="call sale_date('"+d1+"','"+d2+"')";
+	rs=stmt.executeQuery(query);
+	System.out.println("DATE		Total_sale");
+	while(rs.next())
+	{	
+	String bill_date=rs.getString("bill_date");
+	int t=rs.getInt("Total_sale");
+	System.out.println(bill_date+"		"+t);
+	}
+	conn.close();
+	break;
+    
+	}   
+ }while(n!=0);
+}
+catch(Exception e){
+	System.out.println(e);}
+}
+}
