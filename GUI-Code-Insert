@@ -1,0 +1,142 @@
+import java.awt.Color;
+import java.awt.EventQueue;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.border.EmptyBorder;
+
+public class Insert extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+    private JTextField textField;
+    private JButton btnNewButton;
+    private JLabel label;
+    
+    private JPanel Panel;
+    private JTextField textField1;
+    private JTextField textField2;
+    
+    /**
+     * Launch the application.
+     */
+    public static void main(String[] args) {
+        EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                try {
+                    Insert frame = new Insert();
+                    frame.setVisible(true);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    /**
+     * Create the frame.
+     */
+    public Insert() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setBounds(450, 190, 1014, 597);
+        setResizable(false);
+        Panel = new JPanel();
+        Panel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        setContentPane(Panel);
+        Panel.setLayout(null);
+
+        JLabel lblNewLabel = new JLabel("Customer");
+        lblNewLabel.setForeground(Color.BLUE);
+        lblNewLabel.setFont(new Font("Italic", Font.PLAIN, 46));
+        lblNewLabel.setBounds(423, 13, 273, 93);
+        Panel.add(lblNewLabel);
+
+        
+        textField = new JTextField();
+        textField.setFont(new Font("Tahoma", Font.PLAIN, 20));
+        textField.setBounds(400, 200, 281, 50);
+        Panel.add(textField);
+
+
+        JLabel lblPassword = new JLabel("Customer Name");
+        lblPassword.setForeground(Color.BLACK);
+        lblPassword.setBackground(Color.BLUE);
+        lblPassword.setFont(new Font("Tahoma", Font.PLAIN,20));
+        lblPassword.setBounds(250, 200, 193, 52);
+     Panel.add(lblPassword);
+     
+     textField1 = new JTextField();
+     textField1.setFont(new Font("Tahoma", Font.PLAIN, 20));
+     textField1.setBounds(400, 280, 281, 50);
+     Panel.add(textField1);
+     textField.setColumns(10);
+
+     textField2 = new JTextField();
+     textField2.setFont(new Font("Tahoma", Font.PLAIN, 20));
+     textField2.setBounds(400, 360, 281, 50);
+     Panel.add(textField2);
+
+     JLabel lbladdress = new JLabel("Customer Address");
+     lbladdress.setBackground(Color.BLACK);
+     lbladdress.setForeground(Color.BLACK);
+     lbladdress.setFont(new Font("Tahoma", Font.PLAIN, 20));
+     lbladdress.setBounds(235, 280, 193, 52);
+     Panel.add(lbladdress);
+
+     JLabel lblPhone1 = new JLabel("Customer Phone number");
+     lblPhone1.setForeground(Color.BLACK);
+     lblPhone1.setBackground(Color.BLUE);
+     lblPhone1.setFont(new Font("Tahoma", Font.PLAIN,20));
+     lblPhone1.setBounds(250, 360, 193, 52);
+  Panel.add(lblPhone1);
+        btnNewButton = new JButton("Insert");
+        btnNewButton.setFont(new Font("Tahoma", Font.PLAIN, 26));
+        btnNewButton.setBounds(545, 440, 162, 73);
+        btnNewButton.addActionListener(new ActionListener() {
+
+            public void actionPerformed(ActionEvent e) {
+            	
+                String Name=textField.getText();
+                String Address=textField1.getText();
+                String phone=textField2.getText();
+                
+            
+               
+                try {
+                    Connection connection = (Connection) DriverManager.getConnection("jdbc:mysql://localhost:3306/snigdha_db?autoReconnect=true&useSSL=false",
+                        "root", "sni@1234");
+
+                    PreparedStatement st = (PreparedStatement) connection.prepareStatement("insert into customer(c_Name,c_Address,c_Phone)"+"values(?,?,?)");
+
+               
+                    st.setString(1, Name);
+                    st.setString(2, Address);
+                    st.setString(3,phone);
+                    //ResultSet rs = st.executeQuery();
+                    st.execute();
+                    	JOptionPane.showMessageDialog(btnNewButton, "insert successful!");  
+                } catch (SQLException sqlException) {
+                    sqlException.printStackTrace();
+                }
+            }
+        });
+
+        Panel.add(btnNewButton);
+
+        label = new JLabel("");
+        label.setBounds(0, 0, 1008, 562);
+        Panel.add(label);
+    }
+}
+
+
+
